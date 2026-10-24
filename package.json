@@ -1,10 +1,10 @@
 {
-  "name": "@kaus1ubh/agent-relay",
+  "name": "agentwire",
   "version": "0.1.0",
-  "description": "Message other Claude Code, Codex, Antigravity and Cursor agent sessions on the same machine",
+  "description": "Message your open Claude Code, Codex, Antigravity and Cursor sessions from each other",
   "type": "module",
   "bin": {
-    "agent-relay": "bin/agent-relay.js"
+    "agentwire": "bin/agentwire.js"
   },
   "files": [
     "bin",
@@ -29,6 +29,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Kaus1ubh/agent-relay.git"
+    "url": "git+https://github.com/Kaus1ubh/agentwire.git"
   }
 }
