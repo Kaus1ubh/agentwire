@@ -306,10 +306,19 @@ function cursorCommand() {
   return bin ? [bin] : null;
 }
 
+// An agent started from inside a Claude Code session would inherit that session's identity
+// (CLAUDE_CODE_ENTRYPOINT, its session IDs, the desktop app's messaging socket) and record itself
+// as part of it. Those variables are dropped; the user's own settings (CLAUDE_CONFIG_DIR,
+// CLAUDE_CODE_GIT_BASH_PATH and the like) are kept.
+const SESSION_VARS = /^(CLAUDECODE|CLAUDE_PID|CLAUDE_AGENT_SDK_\w+|CLAUDE_CODE_(ENTRYPOINT|SESSION_ID|HOST_SESSION_ID|CHILD_SESSION|SESSION_ATTENDED|MESSAGING_SOCKET|MESSAGING_TOKEN|DESKTOP_APP_VERSION|SDK_HAS_HOST_AUTH_REFRESH|TERMINAL_MCP_TOOLS|EXECPATH))$/;
+function agentEnv() {
+  return Object.fromEntries(Object.entries(process.env).filter(([k]) => !SESSION_VARS.test(k)));
+}
+
 function run(argv, cwd) {
   const [cmd, ...args] = argv;
   if (/\.(cmd|bat)$/i.test(cmd)) fail(`${cmd} is a batch file; refusing to pass a message through cmd.exe`);
-  const done = spawnSync(cmd, args, { stdio: "inherit", cwd });
+  const done = spawnSync(cmd, args, { stdio: "inherit", cwd, env: agentEnv() });
   if (done.error) fail(done.error.message);
   return done.status ?? 1;
 }
@@ -566,7 +575,7 @@ function cmdSend(agent, id, message, opts) {
 
 function capture(argv, cwd) {
   const [cmd, ...args] = argv;
-  const done = spawnSync(cmd, args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"], maxBuffer: 64 * 1024 * 1024 });
+  const done = spawnSync(cmd, args, { cwd, env: agentEnv(), encoding: "utf8", stdio: ["ignore", "pipe", "inherit"], maxBuffer: 64 * 1024 * 1024 });
   if (done.error) fail(done.error.message);
   return { status: done.status ?? 1, out: done.stdout || "" };
 }
@@ -621,6 +630,11 @@ function cmdStart(agent, message, opts) {
     if (!id) fail("Cursor did not return a chat ID");
     const r = capture([...cmd, "--resume", id, "-p", text, "--output-format", "text"], cwd);
     status = r.status; reply = r.out.trim(); watch = `cursor-agent --resume ${id}`;
+    // Cursor exits 0 without saving the chat when it stops to ask whether to trust the folder
+    if (!cursorChatDir(id)) {
+      if (reply) console.log(reply);
+      fail(`Cursor did not save a chat; if it asked about trusting ${cwd}, run \`agent\` there once and answer it`);
+    }
   }
 
   if (reply) console.log(reply);
