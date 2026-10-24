@@ -11,7 +11,9 @@
     "skills"
   ],
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "prepack": "node scripts/npm-readme.js strip",
+    "postpack": "node scripts/npm-readme.js restore"
   },
   "engines": {
     "node": ">=22.13"
