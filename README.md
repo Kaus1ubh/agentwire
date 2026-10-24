@@ -14,6 +14,11 @@ npx agentwire-cli send codex 01a16345-... "tests pass on main; the plan is in do
 npx agentwire-cli start claude "review docs/plan.md and list the risks" --cwd ~/code/app
 ```
 
+A Cursor chat, asked something unrelated, after
+`agentwire send cursor 2dfe3e40-... "FYI: the nightly build on main passed (ref AW-E2)."`:
+
+![A Cursor chat mentions the other session's message before answering its user's question](https://raw.githubusercontent.com/Kaus1ubh/agentwire/main/docs/cursor-receives.png)
+
 One JavaScript file, no dependencies. Needs Node 22.13 or newer. `npm i -g agentwire-cli`
 installs the command as `agentwire`.
 
