@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // agentwire: find and message local Claude Code, Codex, Antigravity and Cursor agent sessions.
-// One file, zero dependencies; node:sqlite needs Node 22.5 or newer.
+// One file, zero dependencies; node:sqlite works without a flag from Node 22.13.
 
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
