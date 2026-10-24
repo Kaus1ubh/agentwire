@@ -53,7 +53,7 @@ project's settings instead, and `npx agentwire-cli uninstall` removes only what 
 
 | Agent | Chat in the desktop app or editor | CLI session |
 |---|---|---|
-| Claude Code | idle: runs a turn, visible in the app; busy: delivered at its next step | the same |
+| Claude Code | delivered at its next step, or with the user's next prompt when idle | idle: runs a turn; busy: at its next step |
 | Codex | idle or busy: delivered by `codex queue` | `codex exec resume`, as long as no terminal has it open |
 | Antigravity | delivered at its next step, or with the user's next prompt when idle | idle: runs a turn; busy: at its next step |
 | Cursor | delivered at its next step, or with the user's next prompt when idle | idle: runs a turn; busy: not reached, because the Cursor CLI runs no hooks headless |

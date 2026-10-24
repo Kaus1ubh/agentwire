@@ -45,6 +45,8 @@ before(() => {
     { type: "custom-title", customTitle: "Idle session" }));
   const past = new Date(Date.now() - 3600_000);
   fs.utimesSync(path.join(claude, "c-idle.jsonl"), past, past);
+  write(path.join(claude, "c-cli.jsonl"), lines({ type: "user", cwd: "A:\\work", entrypoint: "cli" }));
+  fs.utimesSync(path.join(claude, "c-cli.jsonl"), past, past);
   write(path.join(claude, "c-busy.jsonl"), lines({ type: "user", cwd: "A:\\work" }));
   // a large transcript: the title near the end must still be found
   write(path.join(claude, "c-big.jsonl"), lines({ type: "user", cwd: "A:\\work" }) +
@@ -94,6 +96,7 @@ test("list reads every agent", () => {
 test("sessions that cannot take a turn now are queued, with the reason", () => {
   for (const [agent, id, why] of [
     ["claude", "c-busy", /mid-turn/],
+    ["claude", "c-idle", /desktop chat/],
     ["agy", "a-app", /app conversation/],
     ["cursor", "u-editor", /editor chat/],
   ]) {
@@ -108,7 +111,7 @@ test("sessions that cannot take a turn now are queued, with the reason", () => {
 
 test("idle, reachable sessions get a turn now", () => {
   // PATH is empty, so each accepted send stops at the missing executable
-  assert.match(relay(["send", "claude", "c-idle", "hi"]).stderr, /`claude` is not on PATH/);
+  assert.match(relay(["send", "claude", "c-cli", "hi"]).stderr, /`claude` is not on PATH/);
   assert.match(relay(["send", "agy", "a-cli", "hi"]).stderr, /`agy` is not on PATH/);
   assert.match(relay(["send", "cursor", "u-chat", "hi"]).stderr, /`cursor-agent` is not on PATH/);
   assert.match(relay(["send", "codex", "x-desk", "hi"]).stderr, /`codex` is not on PATH/);

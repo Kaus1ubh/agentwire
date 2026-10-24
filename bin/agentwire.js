@@ -460,6 +460,9 @@ function nowBlocker(agent, id) {
     if (id === process.env.CLAUDE_CODE_SESSION_ID) return "that is this session; resuming it would fork a copy";
     if (Date.now() - mtime(file) < CLAUDE_BUSY_MS)
       return `that session wrote to its transcript in the last ${CLAUDE_BUSY_MS / 1000}s and may be mid-turn; resuming it now would fork a copy`;
+    // the app keeps its own copy of an open chat, so a turn resumed from here would not show in it
+    if (LISTERS.claude().find((r) => r.id === id)?.surface === "desktop")
+      return "that is a Claude desktop chat; a turn resumed from the CLI would not show in the open app";
     return null;
   }
   if (agent === "codex") {
