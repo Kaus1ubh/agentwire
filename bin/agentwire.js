@@ -3,7 +3,9 @@
 // One file, zero dependencies; node:sqlite works without a flag from Node 22.13.
 
 import { spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,6 +39,7 @@ const { DatabaseSync } = await import("node:sqlite");
 const HOME = process.env.AGENTWIRE_HOME || os.homedir();
 const P = {
   claude: path.join(HOME, ".claude", "projects"),
+  claudeSessions: path.join(HOME, ".claude", "sessions"),
   codex: path.join(HOME, ".codex"),
   agyCliDb: path.join(HOME, ".gemini", "antigravity-cli", "conversation_summaries.db"),
   agyAppDb: path.join(HOME, ".gemini", "antigravity", "conversation_summaries.db"),
@@ -544,10 +547,55 @@ function sendNow(agent, id, message, from) {
   }
 }
 
+// A running Claude Code session publishes ~/.claude/sessions/<pid>.json with its inbox address, and
+// <pid>.<hash>.key with the peer token that other local sessions authenticate with.
+function claudeLive(id) {
+  const names = ls(P.claudeSessions);
+  for (const name of names.filter((n) => /^\d+\.json$/.test(n))) {
+    const reg = readJson(path.join(P.claudeSessions, name), null);
+    if (reg?.sessionId !== id || !reg.messagingSocketPath) continue;
+    try { process.kill(reg.pid, 0); } catch (e) { if (e.code !== "EPERM") continue; } // a stale entry
+    const key = names.find((n) => n.startsWith(`${reg.pid}.`) && n.endsWith(".key"));
+    return { ...reg, peerToken: key ? readJson(path.join(P.claudeSessions, key), {}).peerToken : undefined };
+  }
+  return null;
+}
+
+// Delivered into the running session itself. Claude Code shows it as a message from another session
+// and applies that session's own inbound rules, so a session that skips permission prompts holds it for
+// the user. An idle session starts a turn with it; a busy one reads it between tool calls. Only the peer
+// token is used, never the session's own child token, so agentwire can do no more here than another
+// Claude session could.
+function sendClaudeInbox(live, id, message, from) {
+  if (process.platform === "win32" && !live.peerToken) fail("that Claude session published no inbox key");
+  const frame = { msgV: 1, msg_id: crypto.randomUUID(), type: "user",
+    message: { role: "user", content: signedAsync(from, message) }, priority: "next" };
+  const auth = live.peerToken ? JSON.stringify({ type: "auth", token: live.peerToken }) + "\n" : "";
+  return new Promise((resolve) => {
+    const sock = net.connect(live.messagingSocketPath, () => sock.end(auth + JSON.stringify(frame) + "\n"));
+    sock.on("error", (e) => fail(`could not reach that Claude session's inbox: ${e.message}`));
+    sock.on("close", (hadError) => {
+      if (hadError) return;
+      logDelivery({ agent: "claude", id, event: "inbox", mode: "now", from: from || null, bytes: message.length });
+      console.log(live.status === "idle"
+        ? `delivered: claude ${id} was idle and starts a turn with it`
+        : `delivered: claude ${id} reads it between tool calls`);
+      resolve(0);
+    });
+  });
+}
+
 function cmdSend(agent, id, message, opts) {
   if (Buffer.byteLength(message) > MAX_MESSAGE_BYTES)
     fail(`message is over ${MAX_MESSAGE_BYTES / 1024} KB; put the content in a file and send its path`);
   const from = opts.from || sender();
+
+  // A running Claude session, in the desktop app or a terminal, takes messages through its own inbox
+  if (agent === "claude" && id !== process.env.CLAUDE_CODE_SESSION_ID) {
+    const live = claudeLive(id);
+    if (live) return sendClaudeInbox(live, id, message, from);
+  }
+
   const blocker = nowBlocker(agent, id);
 
   // Idle and reachable: run a turn now, the same as the user typing it. Codex always goes this
@@ -806,7 +854,7 @@ else if (cmd === "start") {
 } else if (cmd === "send") {
   const [agent, id, message] = args;
   if (!LISTERS[agent] || !id || message === undefined) fail("usage: agentwire send AGENT SESSION_ID MESSAGE");
-  process.exit(cmdSend(agent, id, message, opts));
+  process.exit(await cmdSend(agent, id, message, opts));
 } else {
   console.log(USAGE);
   process.exit(cmd ? 1 : 0);

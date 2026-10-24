@@ -1,8 +1,9 @@
 // Offline tests: fake homes for every agent, and no agent CLI is ever called.
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +17,20 @@ function relay(args, input) {
   delete env.CLAUDE_CODE_SESSION_ID;
   delete env.CODEX_THREAD_ID;
   return spawnSync(process.execPath, [BIN, ...args], { env, encoding: "utf8", input });
+}
+
+// for tests that serve something agentwire connects to, which spawnSync would block
+function relayAsync(args) {
+  const env = { ...process.env, AGENTWIRE_HOME: home, PATH: "", LOCALAPPDATA: home };
+  delete env.CLAUDE_CODE_SESSION_ID;
+  delete env.CODEX_THREAD_ID;
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [BIN, ...args], { env });
+    let stdout = "", stderr = "";
+    child.stdout.on("data", (d) => (stdout += d));
+    child.stderr.on("data", (d) => (stderr += d));
+    child.on("close", (status) => resolve({ status, stdout, stderr }));
+  });
 }
 
 const hook = (agent, event, payload) => JSON.parse(relay(["hook", agent, event], JSON.stringify(payload)).stdout);
@@ -115,6 +130,32 @@ test("idle, reachable sessions get a turn now", () => {
   assert.match(relay(["send", "agy", "a-cli", "hi"]).stderr, /`agy` is not on PATH/);
   assert.match(relay(["send", "cursor", "u-chat", "hi"]).stderr, /`cursor-agent` is not on PATH/);
   assert.match(relay(["send", "codex", "x-desk", "hi"]).stderr, /`codex` is not on PATH/);
+});
+
+test("a running Claude session gets the message through its own inbox, as a peer", async () => {
+  const pipe = process.platform === "win32" ? `\\\\.\\pipe\\agentwire-test-${process.pid}` : path.join(home, "inbox.sock");
+  const received = [];
+  const server = net.createServer((s) => {
+    let buf = "";
+    s.on("data", (d) => (buf += d));
+    s.on("end", () => received.push(buf));
+  });
+  await new Promise((resolve) => server.listen(pipe, resolve));
+  const sessions = path.join(home, ".claude", "sessions");
+  write(path.join(sessions, `${process.pid}.json`),
+    JSON.stringify({ pid: process.pid, sessionId: "c-live", messagingSocketPath: pipe, status: "idle" }));
+  write(path.join(sessions, `${process.pid}.${"a".repeat(64)}.key`), JSON.stringify({ peerToken: "b".repeat(32) }));
+
+  const r = await relayAsync(["send", "claude", "c-live", "token L1", "--from", "codex:abc"]);
+  server.close();
+  fs.rmSync(sessions, { recursive: true, force: true });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /was idle and starts a turn/);
+  const [auth, frame] = received[0].trim().split("\n").map((l) => JSON.parse(l));
+  assert.deepEqual(auth, { type: "auth", token: "b".repeat(32) }); // the peer token, never a child token
+  assert.equal(frame.type, "user");
+  assert.match(frame.message.content, /token L1/);
+  assert.match(frame.message.content, /to reply: npx agentwire-cli send codex abc/);
 });
 
 test("unreachable sessions fall back to the inbox, delivered once as context", () => {
