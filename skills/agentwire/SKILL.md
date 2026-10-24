@@ -18,10 +18,11 @@ npx agentwire-cli send codex <id> "message"
 
 ## What `send` does
 
-- **The receiver is idle:** it answers right away, and its reply prints here.
-- **The receiver is busy, or is an editor or app chat:** the message is queued, and the
-  receiver reads it at its next step: its next tool call, model call, or the user's next prompt
-  in that chat. It does not start any work because of the message.
+- **The receiver is idle:** it takes a turn right away. A CLI session's reply prints here; a
+  chat open in an app answers in that window, and you hear back only if it replies with `send`.
+- **The receiver is busy, or is a Cursor or Antigravity app chat:** the receiver reads it at its
+  next step: its next tool call, model call, or the user's next prompt in that chat. It does not
+  start any work because of the message.
 - **`--wake`:** a busy receiver also acts on the message when its current turn ends. Use it only
   when the receiver should keep working without the user. Never use it for anything the user
   has not asked for.

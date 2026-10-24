@@ -126,6 +126,7 @@ function sqliteRows(file, sql) {
 
 function claudeSessions() {
   const rows = [];
+  const running = claudeRegistry();
   for (const project of ls(P.claude)) {
     for (const name of ls(path.join(P.claude, project))) {
       if (!name.endsWith(".jsonl")) continue;
@@ -143,11 +144,12 @@ function claudeSessions() {
           try { const d = JSON.parse(line); cwd = d.cwd || ""; entry = d.entrypoint || ""; } catch {}
         }
       }
-      const updated = mtime(file);
+      const updated = mtime(file), id = name.slice(0, -6), live = running.get(id);
       rows.push({
-        agent: "claude", id: name.slice(0, -6), title, cwd,
-        surface: entry === "claude-desktop" ? "desktop" : entry || "cli",
-        updated, state: Date.now() - updated < CLAUDE_BUSY_MS ? "maybe-busy" : "idle",
+        agent: "claude", id, title, cwd,
+        surface: entry === "claude-desktop" ? "desktop" : "cli",
+        // a running session reports its own state; for the rest, a recent write may mean mid-turn
+        updated, state: live?.status || (Date.now() - updated < CLAUDE_BUSY_MS ? "maybe-busy" : "idle"),
       });
     }
   }
@@ -547,18 +549,24 @@ function sendNow(agent, id, message, from) {
   }
 }
 
-// A running Claude Code session publishes ~/.claude/sessions/<pid>.json with its inbox address, and
-// <pid>.<hash>.key with the peer token that other local sessions authenticate with.
-function claudeLive(id) {
-  const names = ls(P.claudeSessions);
-  for (const name of names.filter((n) => /^\d+\.json$/.test(n))) {
+// A running Claude Code session publishes ~/.claude/sessions/<pid>.json with its inbox address and
+// state, and <pid>.<hash>.key with the peer token that other local sessions authenticate with.
+function claudeRegistry() {
+  const live = new Map();
+  for (const name of ls(P.claudeSessions).filter((n) => /^\d+\.json$/.test(n))) {
     const reg = readJson(path.join(P.claudeSessions, name), null);
-    if (reg?.sessionId !== id || !reg.messagingSocketPath) continue;
+    if (!reg?.sessionId || !reg.messagingSocketPath) continue;
     try { process.kill(reg.pid, 0); } catch (e) { if (e.code !== "EPERM") continue; } // a stale entry
-    const key = names.find((n) => n.startsWith(`${reg.pid}.`) && n.endsWith(".key"));
-    return { ...reg, peerToken: key ? readJson(path.join(P.claudeSessions, key), {}).peerToken : undefined };
+    live.set(reg.sessionId, reg);
   }
-  return null;
+  return live;
+}
+
+function claudeLive(id) {
+  const reg = claudeRegistry().get(id);
+  if (!reg) return null;
+  const key = ls(P.claudeSessions).find((n) => n.startsWith(`${reg.pid}.`) && n.endsWith(".key"));
+  return { ...reg, peerToken: key ? readJson(path.join(P.claudeSessions, key), {}).peerToken : undefined };
 }
 
 // Delivered into the running session itself. Claude Code shows it as a message from another session

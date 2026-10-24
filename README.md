@@ -45,22 +45,24 @@ project's settings instead, and `npx agentwire-cli uninstall` removes only what 
 
 `send` delivers as soon as the receiver can take it:
 
-- **An idle session** answers right away, and its reply prints in your terminal.
-- **A busy session, or a chat in an editor or app,** reads the message at its next step: its next
-  tool call, its next model call, or the user's next prompt in that chat. The message does not
-  make it start any work. The receiver tells the user in one line that a message arrived.
+- **An idle session** takes a turn right away. A CLI session's reply prints in your terminal; a
+  chat open in an app answers in that window.
+- **A busy session, or a Cursor or Antigravity app chat,** reads the message at its next step: its
+  next tool call, its next model call, or the user's next prompt in that chat. The message does
+  not make it start any work. The receiver tells the user in one line that a message arrived.
 - **`--wake`** also lets a busy session act on the message when its current turn ends, without
   the user. Use it only when that is what the user wants.
 
 | Agent | Chat in the desktop app or editor | CLI session |
 |---|---|---|
-| Claude Code | delivered at its next step, or with the user's next prompt when idle | idle: runs a turn; busy: at its next step |
+| Claude Code | delivered through the session's own inbox: idle runs a turn, busy reads it between tool calls | the same while it runs; otherwise resumed with `claude -p --resume` |
 | Codex | idle or busy: delivered by `codex queue` | `codex exec resume`, as long as no terminal has it open |
 | Antigravity | delivered at its next step, or with the user's next prompt when idle | idle: runs a turn; busy: at its next step |
 | Cursor | delivered at its next step, or with the user's next prompt when idle | idle: runs a turn; busy: not reached, because the Cursor CLI runs no hooks headless |
 
-No app here lets an outside program start a turn in an idle chat, except Codex. A message for an
-idle Cursor or Antigravity chat waits for the user's next prompt there.
+Claude Code (2.1.234 or newer on Windows) and Codex let an outside program start a turn in an
+idle chat. Cursor and Antigravity have no such entry point, so a message for an idle chat there
+waits for the user's next prompt.
 
 ## Starting a new session
 
@@ -86,8 +88,10 @@ Every cell above comes from a live run on Windows 11 in October 2026: a message 
 unique token, sent to a real session, with the reply and the session's own transcript checked.
 The cases that fail quietly are refused by name:
 
-- Resuming a Claude session in the middle of a turn creates a copy of it. `send` checks for a
-  transcript written in the last 30 seconds and queues the message instead.
+- Resuming a Claude session in the middle of a turn creates a copy of it, and a turn resumed from
+  the CLI never shows in the open desktop app. A running session gets the message through its own
+  inbox instead. For one that is not running, `send` checks for a transcript written in the last
+  30 seconds and queues the message.
 - Resuming a Cursor editor chat from the CLI starts an empty chat under the same ID, and the
   editor never shows it. `send` recognises editor chats and queues for the hook.
 - The Antigravity CLI cannot open app conversations. `send` queues for the hook.
@@ -102,9 +106,14 @@ stop the message from arriving.
 
 - Messages are labelled as coming from another agent session, not from the user, and as
   carrying no approval. Receivers are told to ask the user before anything that needs consent.
-- A message only adds context. It cannot make an agent start work unless the sender passed
-  `--wake`, and the `SKILL.md` that agents read forbids `--wake` for anything the user did not ask
-  for.
+- A queued message only adds context. It cannot make a busy agent keep working unless the sender
+  passed `--wake`, and the `SKILL.md` that agents read forbids `--wake` for anything the user did
+  not ask for. An idle session that can take a turn does take one, the same as if the user had
+  sent the message.
+- A running Claude session is reached the way another Claude session would reach it: with the peer
+  token it publishes for that purpose, never its own child token. Claude Code marks the message as
+  coming from another session and applies that session's `crossSessionInbound` setting, and a
+  session that skips permission prompts holds it for the user.
 - The receiver tells the user that a message arrived, and every delivery is logged in
   `~/.agentwire/deliveries.log` with its sender, session and size.
 - Messages over 16 KB are refused, and a session with 20 messages waiting accepts no more.
