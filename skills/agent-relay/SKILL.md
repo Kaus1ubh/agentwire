@@ -30,7 +30,7 @@ so the receiver can answer.
 | Codex | `codex queue --thread <id>` | desktop threads, idle or mid-run | CLI threads (originator `codex-tui`) never appear in the desktop app; their message waits until that CLI session runs again |
 | Claude Code | `claude -p --resume <id>` | an idle session, desktop or CLI, under the same ID | mid-turn it forks a copy, so `send` refuses a transcript written in the last 30 s unless `--force` |
 | Antigravity | `agy --conversation <id> -p` | agy CLI conversations | app conversations cannot be reached; `send` refuses them |
-| Cursor | `cursor-agent --resume <id> -p` | Cursor agent CLI chats | see the README for what was tested |
+| Cursor | `cursor-agent --resume <id> -p` | Cursor agent CLI chats | editor chats cannot be reached: resuming one starts a new empty chat under the same ID, so `send` refuses them. Cursor asks once per folder for trust; `send` never answers that |
 
 `send claude`, `send agy` and `send cursor` run the receiver's turn and print its reply.
 `send codex` returns once the message is handed over; the reply appears in that thread.

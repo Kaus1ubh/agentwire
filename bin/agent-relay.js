@@ -31,6 +31,7 @@ const P = {
   agyAppDb: path.join(HOME, ".gemini", "antigravity", "conversation_summaries.db"),
   agyCliConversations: path.join(HOME, ".gemini", "antigravity-cli", "conversations"),
   cursorChats: path.join(HOME, ".cursor", "chats"),
+  cursorProjects: path.join(HOME, ".cursor", "projects"),
 };
 
 // A Claude transcript written this recently may belong to a session mid-turn,
@@ -188,37 +189,54 @@ function agySessions() {
 
 // ---- Cursor ------------------------------------------------------------------
 
+// ~/.cursor/chats/<workspace hash>/<chat id>/ holds meta.json (cwd, updatedAtMs) and store.db,
+// whose meta table keeps hex-encoded JSON with the chat's name
+function cursorChatDir(id) {
+  return ls(P.cursorChats).map((w) => path.join(P.cursorChats, w, id)).find(isDir);
+}
+
+function cursorMeta(dir) {
+  let meta = {};
+  try { meta = JSON.parse(fs.readFileSync(path.join(dir, "meta.json"), "utf8")); } catch {}
+  let name = "";
+  for (const r of sqliteRows(path.join(dir, "store.db"), "select value from meta")) {
+    try {
+      const raw = typeof r.value === "string" ? r.value : Buffer.from(r.value).toString("utf8");
+      name = JSON.parse(/^[0-9a-f]+$/i.test(raw) ? Buffer.from(raw, "hex").toString("utf8") : raw).name || name;
+    } catch {}
+  }
+  return { name, cwd: meta.cwd || "", updated: meta.updatedAtMs || mtime(dir) };
+}
+
+// Every chat, CLI or editor, gets ~/.cursor/projects/<workspace>/agent-transcripts/<id>/; only CLI
+// chats also get a ~/.cursor/chats folder. Resuming an editor chat's ID from the CLI does not
+// fail: it silently starts a new empty chat under that ID that the editor never shows.
+function cursorTranscripts() {
+  const map = new Map();
+  for (const workspace of ls(P.cursorProjects)) {
+    const dir = path.join(P.cursorProjects, workspace, "agent-transcripts");
+    for (const id of ls(dir)) map.set(id, path.join(dir, id));
+  }
+  return map;
+}
+
 function cursorSessions() {
-  const rows = [];
+  const rows = [], seen = new Set();
   for (const workspace of ls(P.cursorChats)) {
     for (const id of ls(path.join(P.cursorChats, workspace))) {
       const dir = path.join(P.cursorChats, workspace, id);
       if (!isDir(dir)) continue;
       const meta = cursorMeta(dir);
-      rows.push({
-        agent: "cursor", id, title: meta.name || "", cwd: meta.cwd || "",
-        surface: "cli", updated: Math.max(mtime(dir), ...ls(dir).map((f) => mtime(path.join(dir, f)))),
-        state: "",
-      });
+      seen.add(id);
+      rows.push({ agent: "cursor", id, title: meta.name, cwd: meta.cwd, surface: "cli", updated: meta.updated, state: "" });
     }
+  }
+  for (const [id, dir] of cursorTranscripts()) {
+    if (seen.has(id)) continue;
+    rows.push({ agent: "cursor", id, title: "", cwd: "", surface: "editor (unreachable)", updated: mtime(dir), state: "" });
   }
   return rows;
 }
-
-function cursorMeta(dir) {
-  // store.db keeps a hex-encoded JSON blob under meta key "0"
-  for (const r of sqliteRows(path.join(dir, "store.db"), "select key, value from meta")) {
-    try {
-      const raw = typeof r.value === "string" ? r.value : Buffer.from(r.value).toString("utf8");
-      const text = /^[0-9a-f]+$/i.test(raw) ? Buffer.from(raw, "hex").toString("utf8") : raw;
-      const d = JSON.parse(text);
-      return { name: d.name || d.title, cwd: d.workspacePath || d.cwd };
-    } catch {}
-  }
-  return {};
-}
-
-const cursorExists = (id) => ls(P.cursorChats).some((w) => isDir(path.join(P.cursorChats, w, id)));
 
 // ---- running agent CLIs ------------------------------------------------------
 
@@ -246,10 +264,10 @@ function cursorCommand() {
   return bin ? [bin] : null;
 }
 
-function run(argv) {
+function run(argv, cwd) {
   const [cmd, ...args] = argv;
   if (/\.(cmd|bat)$/i.test(cmd)) fail(`${cmd} is a batch file; refusing to pass a message through cmd.exe`);
-  const done = spawnSync(cmd, args, { stdio: "inherit" });
+  const done = spawnSync(cmd, args, { stdio: "inherit", cwd });
   if (done.error) fail(done.error.message);
   return done.status ?? 1;
 }
@@ -323,10 +341,19 @@ function cmdSend(agent, id, message, opts) {
   }
 
   if (agent === "cursor") {
-    if (!cursorExists(id)) fail(`no Cursor agent chat ${id}`);
+    const dir = cursorChatDir(id);
+    if (!dir) {
+      if (cursorTranscripts().has(id))
+        fail("that is a Cursor editor chat; resuming it from the CLI would start a new empty chat " +
+          "under the same ID that the editor never shows. Use a Cursor CLI chat or a shared file instead.");
+      fail(`no Cursor agent chat ${id}`);
+    }
     const cmd = cursorCommand();
     if (!cmd) fail("`cursor-agent` is not on PATH");
-    return run([...cmd, "--resume", id, "-p", text, "--output-format", "text"]);
+    // resume from the chat's own folder; Cursor asks for that folder to be trusted once, and
+    // agent-relay never answers that on the user's behalf
+    const { cwd } = cursorMeta(dir);
+    return run([...cmd, "--resume", id, "-p", text, "--output-format", "text"], cwd && isDir(cwd) ? cwd : undefined);
   }
 }
 

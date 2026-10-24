@@ -66,6 +66,8 @@ before(() => {
   write(path.join(g, "antigravity-cli", "conversations", "a-cli.db"), "");
 
   fs.mkdirSync(path.join(home, ".cursor", "chats", "ws1", "u-chat"), { recursive: true });
+  for (const id of ["u-chat", "u-editor"])
+    write(path.join(home, ".cursor", "projects", "empty-window", "agent-transcripts", id, `${id}.jsonl`), "{}\n");
 });
 
 after(() => fs.rmSync(home, { recursive: true, force: true }));
@@ -82,7 +84,15 @@ test("list reads every agent", () => {
   assert.match(out, /a-app .*app \(unreachable\)/);
   assert.equal(out.match(/a-cli/g).length, 1); // listed in both indexes, shown once
   assert.match(out, /2026-09-15 13:42/);       // seven-digit fractions parse
-  assert.match(out, /cursor u-chat/);
+  assert.match(out, /cursor u-chat .*cli /);
+  assert.equal(out.match(/u-chat/g).length, 1);
+  assert.match(out, /u-editor .*editor \(unreachable\)/);
+});
+
+test("a Cursor editor chat is refused", () => {
+  const r = relay("send", "cursor", "u-editor", "hi");
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /editor chat/);
 });
 
 test("a busy or missing Claude session is refused", () => {
