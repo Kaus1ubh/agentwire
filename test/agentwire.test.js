@@ -125,7 +125,7 @@ test("unreachable sessions fall back to the inbox, delivered once as context", (
   const ctx = out.hookSpecificOutput.additionalContext;
   assert.match(ctx, /token N1/);
   assert.match(ctx, /not from the user/);
-  assert.match(ctx, /npx agentwire send codex abc/);
+  assert.match(ctx, /to reply: npx agentwire send codex abc/);
   assert.deepEqual(hook("claude", "PostToolUse", { session_id: "c-busy" }), {}); // only once
   assert.match(fs.readFileSync(path.join(home, ".agentwire", "deliveries.log"), "utf8"), /"from":"codex:abc"/);
 });
