@@ -9,7 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 // the scoped name matters: unscoped look-alikes on npm are other people's packages
-const PKG = "agentwire";
+const PKG = "agentwire-cli";
 
 const USAGE = `agentwire: message other coding-agent sessions on this machine
 

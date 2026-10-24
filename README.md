@@ -4,23 +4,24 @@ Send a message from one coding-agent session to another on the same machine: Cla
 Codex, Antigravity and Cursor, including chats already open in their desktop apps.
 
 ```bash
-npx agentwire list                                  # sessions from every agent, newest first
-npx agentwire send codex 01a16345-... "tests pass on main; the plan is in docs/plan.md"
-npx agentwire start claude "review docs/plan.md and list the risks" --cwd ~/code/app
+npx agentwire-cli list                                  # sessions from every agent, newest first
+npx agentwire-cli send codex 01a16345-... "tests pass on main; the plan is in docs/plan.md"
+npx agentwire-cli start claude "review docs/plan.md and list the risks" --cwd ~/code/app
 ```
 
-One JavaScript file, no dependencies. Needs Node 22.13 or newer.
+One JavaScript file, no dependencies. Needs Node 22.13 or newer. `npm i -g agentwire-cli`
+installs the command as `agentwire`.
 
 ## Setup
 
 ```bash
-npx agentwire install            # the agentwire skill, for every agent installed here
-npx agentwire install --hooks    # also the hooks that deliver to busy sessions and app chats
+npx agentwire-cli install            # the agentwire skill, for every agent installed here
+npx agentwire-cli install --hooks    # also the hooks that deliver to busy sessions and app chats
 ```
 
 Without hooks, `send` still reaches idle sessions and Codex. `install --hooks` writes into each
 agent's user settings and keeps a backup beside every file it changes. `--project DIR` writes a
-project's settings instead, and `npx agentwire uninstall` removes only what agentwire added.
+project's settings instead, and `npx agentwire-cli uninstall` removes only what agentwire added.
 
 ## Sending to an existing session
 

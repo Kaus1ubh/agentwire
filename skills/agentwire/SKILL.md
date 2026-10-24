@@ -10,10 +10,10 @@ description: >-
 # agentwire
 
 ```bash
-npx agentwire list                      # newest sessions from every agent
-npx agentwire list --agent codex --cwd .
-npx agentwire whoami                    # this session's ID, when the agent exposes it
-npx agentwire send codex <id> "message"
+npx agentwire-cli list                      # newest sessions from every agent
+npx agentwire-cli list --agent codex --cwd .
+npx agentwire-cli whoami                    # this session's ID, when the agent exposes it
+npx agentwire-cli send codex <id> "message"
 ```
 
 ## What `send` does
@@ -26,7 +26,7 @@ npx agentwire send codex <id> "message"
   when the receiver should keep working without the user. Never use it for anything the user
   has not asked for.
 
-Queued messages need the agentwire hooks (`npx agentwire install --hooks`). `send` says so when
+Queued messages need the agentwire hooks (`npx agentwire-cli install --hooks`). `send` says so when
 they are missing.
 
 `send` signs the message with your session ID when it can find it, and the receiver gets the
