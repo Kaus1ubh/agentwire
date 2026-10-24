@@ -15,12 +15,9 @@ npx agentwire-cli start claude "review docs/plan.md and list the risks" --cwd ~/
 ```
 
 <!-- github-only -->
-A Claude Code session sent `"FYI: the nightly build on main passed"` to an Antigravity chat and a
-Cursor chat. Each mentioned it at its user's next, unrelated prompt:
+One `send` of `"FYI: the nightly build on main passed"` to an open chat in each app:
 
-![An Antigravity chat names the sending Claude session and quotes its message, then answers](https://raw.githubusercontent.com/Kaus1ubh/agentwire/main/docs/antigravity-receives.png)
-
-![A Cursor chat mentions the other session's message, then answers](https://raw.githubusercontent.com/Kaus1ubh/agentwire/main/docs/cursor-receives.png)
+![The message arriving in Claude Code, Codex, Cursor and Antigravity chats](https://raw.githubusercontent.com/Kaus1ubh/agentwire/main/docs/receivers.png)
 <!-- /github-only -->
 
 One JavaScript file, no dependencies. Needs Node 22.13 or newer. `npm i -g agentwire-cli`
