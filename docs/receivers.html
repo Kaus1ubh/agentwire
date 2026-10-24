@@ -1,42 +1,42 @@
 <!doctype html>
-<!-- Source of docs/receivers.png. Each screenshot is scaled so its body text is 5.7 px per character,
-     since they were captured at different zooms. Rebuild: msedge --headless --force-device-scale-factor=2
-     --window-size=1080,1579 --screenshot=receivers.png receivers.html -->
+<!-- Source of docs/receivers.png. Each screenshot is scaled to the card width (720 px), centred
+     in its card. Rebuild: msedge --headless
+     --force-device-scale-factor=2 --window-size=1600,696 --screenshot=receivers.png receivers.html -->
 <html>
 <head>
 <meta charset="utf-8">
 <style>
   :root { --bg: #0b0b0c; --line: #26262a; --name: #f2f2f3; --note: #8b8b93; }
   * { box-sizing: border-box; margin: 0; }
-  html, body { background: var(--bg); width: 1080px; height: 1579px; overflow: hidden; }
-  body { padding: 40px; font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
-  .card { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-bottom: 28px; }
-  .card:last-child { margin-bottom: 0; }
-  header { height: 56px; display: flex; align-items: baseline; gap: 12px; padding: 17px 22px 0;
+  html, body { background: var(--bg); width: 1600px; height: 696px; overflow: hidden; }
+  body { padding: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+         font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+  .card { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+  header { height: 56px; flex: none; display: flex; align-items: baseline; gap: 12px; padding: 17px 22px 0;
            background: #111113; border-bottom: 1px solid var(--line); }
   h2 { font-size: 17px; font-weight: 600; color: var(--name); letter-spacing: -0.01em; }
   p { font-size: 14px; color: var(--note); }
-  .shot { padding: 24px 0; }
-  img { display: block; }
   code { font: 13px Consolas, ui-monospace, monospace; color: #b9b9c2; }
+  .shot { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px 14px; }
+  img { display: block; }
 </style>
 </head>
 <body>
   <section class="card">
     <header><h2>Claude Code</h2><p>desktop app · arrived with the user's next prompt</p></header>
-    <div class="shot" style="background:#181818"><img src="claude-receives.png" width="989" height="175"></div>
+    <div class="shot" style="background:#181818"><img src="claude-receives.png" width="720" height="136"></div>
   </section>
   <section class="card">
-    <header><h2>Codex</h2><p>desktop app · delivered at once by <code>codex queue</code></p></header>
-    <div class="shot" style="background:#181818"><img src="codex-receives.png" width="768" height="401"></div>
+    <header><h2>Codex</h2><p>desktop app · delivered at once by <code>codex&nbsp;queue</code></p></header>
+    <div class="shot" style="background:#181818"><img src="codex-receives.png" width="720" height="210"></div>
   </section>
   <section class="card">
     <header><h2>Cursor</h2><p>editor · arrived with the user's next prompt</p></header>
-    <div class="shot" style="background:#141414"><img src="cursor-receives.png" width="644" height="215"></div>
+    <div class="shot" style="background:#141414"><img src="cursor-receives.png" width="720" height="186"></div>
   </section>
   <section class="card">
     <header><h2>Antigravity</h2><p>desktop app · arrived with the user's next prompt</p></header>
-    <div class="shot" style="background:#000"><img src="antigravity-receives.png" width="897" height="200"></div>
+    <div class="shot" style="background:#000"><img src="antigravity-receives.png" width="720" height="115"></div>
   </section>
 </body>
 </html>
