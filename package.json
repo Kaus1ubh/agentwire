@@ -1,0 +1,34 @@
+{
+  "name": "@kaus1ubh/agent-relay",
+  "version": "0.1.0",
+  "description": "Message other Claude Code, Codex, Antigravity and Cursor agent sessions on the same machine",
+  "type": "module",
+  "bin": {
+    "agent-relay": "bin/agent-relay.js"
+  },
+  "files": [
+    "bin",
+    "skills"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "keywords": [
+    "claude-code",
+    "codex",
+    "antigravity",
+    "cursor",
+    "agents",
+    "skill",
+    "multi-agent"
+  ],
+  "author": "Kaus1ubh",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kaus1ubh/agent-relay.git"
+  }
+}
