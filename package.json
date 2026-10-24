@@ -1,6 +1,6 @@
 {
   "name": "agentwire-cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Message your open Claude Code, Codex, Antigravity and Cursor sessions from each other",
   "type": "module",
   "bin": {

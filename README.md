@@ -75,6 +75,11 @@ permission rules.
 | Antigravity | no | `agy --conversation <id>` |
 | Cursor | with `--open`: Cursor shows the prompt for approval, then opens it in a new chat of its current project for you to send | `cursor-agent --resume <id>` |
 
+In a new conversation, Antigravity often runs a tool before it answers, and its headless mode
+denies tools it cannot ask about, so `start agy` can come back without a reply. The conversation
+is still created, and `send` reaches it as usual. Cursor asks once whether to trust a folder:
+answer it by running `agent` there, since agentwire never answers it for you.
+
 ## How each route was tested
 
 Every cell above comes from a live run on Windows 11 in October 2026: a message carrying a
