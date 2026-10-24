@@ -509,8 +509,13 @@ function hooksInstalled(agent, id) {
 // prints its answer to the sender, so the receiver is told to just answer: a "reply with"
 // command there only tempts it to run a shell command. Queued messages have no return path,
 // so they carry the command.
-const signedSync = (from, message) =>
-  from ? `[agentwire from ${from.replace(":", " ")}; just answer here, your reply is returned to them]\n${message}` : message;
+// The sync label names the sender by a short ID: nothing is sent back by hand, so the full one
+// would only make the label wrap in a terminal.
+const signedSync = (from, message) => {
+  if (!from) return message;
+  const [agent, id] = from.split(":");
+  return `[agentwire: from ${agent} ${id.slice(0, 8)}; your reply goes back to them]\n${message}`;
+};
 const signedAsync = (from, message) =>
   from ? `[agentwire from ${from.replace(":", " ")}]\n${message}\n\n(to reply: npx ${PKG} send ${from.replace(":", " ")} "...")` : message;
 
