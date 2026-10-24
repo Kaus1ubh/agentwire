@@ -118,7 +118,7 @@ test("unreachable sessions fall back to the inbox, delivered once as context", (
   const r = relay(["send", "claude", "c-busy", "token N1", "--from", "codex:abc"]);
   assert.equal(r.status, 0);
   assert.match(r.stdout, /queued: claude c-busy will read it at its next step/);
-  assert.match(r.stderr, /no agentwire hook is installed/);
+  assert.match(r.stderr, /no global agentwire hook for claude/); // its folder A:\work does not exist
 
   assert.deepEqual(hook("claude", "Stop", { session_id: "c-busy" }), {}); // turn end never takes `next`
   const out = hook("claude", "PostToolUse", { session_id: "c-busy" });
@@ -181,7 +181,11 @@ test("install writes hooks, keeps other hooks, and uninstall removes only ours",
   const cursor = JSON.parse(fs.readFileSync(path.join(project, ".cursor", "hooks.json"), "utf8"));
   assert.match(cursor.hooks.stop[0].command, /hook cursor stop/);
   const agy = JSON.parse(fs.readFileSync(path.join(project, ".agents", "hooks.json"), "utf8"));
-  assert.match(agy.agentwire.PreInvocation[0].command, /hook agy PreInvocation/);
+  // no shell runs these, so no quotes: a relative path to a copy beside the config
+  assert.equal(agy.agentwire.PreInvocation[0].command, "node agentwire-hook.mjs hook agy PreInvocation");
+  assert.equal(cursor.hooks.stop[0].command, "node .cursor/agentwire-hook.mjs hook cursor stop");
+  assert.ok(fs.existsSync(path.join(project, ".agents", "agentwire-hook.mjs")));
+  assert.ok(fs.existsSync(path.join(project, ".cursor", "agentwire-hook.mjs")));
   assert.ok(fs.existsSync(path.join(home, ".agentwire", "bin", "agentwire.mjs")));
 
   assert.match(relay(["install", "--hooks", "--project", project]).stdout, /unchanged/); // idempotent
@@ -189,6 +193,7 @@ test("install writes hooks, keeps other hooks, and uninstall removes only ours",
   const left = JSON.parse(fs.readFileSync(path.join(project, ".claude", "settings.json"), "utf8"));
   assert.deepEqual(left.hooks, { Stop: [{ hooks: [{ type: "command", command: "echo mine" }] }] });
   assert.equal(JSON.parse(fs.readFileSync(path.join(project, ".agents", "hooks.json"), "utf8")).agentwire, undefined);
+  assert.equal(fs.existsSync(path.join(project, ".agents", "agentwire-hook.mjs")), false);
 });
 
 test("install --dry-run writes nothing", () => {

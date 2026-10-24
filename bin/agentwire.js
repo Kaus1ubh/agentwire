@@ -471,13 +471,16 @@ function nowBlocker(agent, id) {
   }
 }
 
-function hooksInstalled(agent) {
-  const files = {
-    claude: [path.join(HOME, ".claude", "settings.json")],
-    cursor: [path.join(HOME, ".cursor", "hooks.json")],
-    agy: [path.join(HOME, ".gemini", "config", "hooks.json")],
-  }[agent] || [];
-  return files.some((f) => exists(f) && fs.readFileSync(f, "utf8").includes("agentwire"));
+// true when a global hook, or a project hook in the session's folder, is installed; false when
+// none is; null when the agent does not record the session's folder, so project hooks are unknown
+function hooksInstalled(agent, id) {
+  const row = LISTERS[agent]().find((r) => r.id === id);
+  const cwd = row?.cwd ? row.cwd.replace(/^file:\/\/\/?/, "").replace(/%20/g, " ") : null;
+  const known = cwd && isDir(cwd);
+  const found = hookTargets(null).concat(known ? hookTargets(cwd) : [])
+    .filter((t) => t.agent === agent)
+    .some((t) => exists(t.file) && fs.readFileSync(t.file, "utf8").includes("agentwire"));
+  return found || (known ? false : null);
 }
 
 // How a message is signed depends on whether the reply comes back by itself. A turn run here
@@ -531,9 +534,13 @@ function cmdSend(agent, id, message, opts) {
   console.log(opts.wake
     ? `queued: ${agent} ${id} will act on it when its current turn ends (${blocker})`
     : `queued: ${agent} ${id} will read it at its next step (${blocker})`);
-  if (!hooksInstalled(agent))
-    note(`no agentwire hook is installed globally for ${agent}, so nothing picks this up yet; ` +
+  const hooked = hooksInstalled(agent, id);
+  if (hooked === false)
+    note(`no agentwire hook is installed for ${agent} here, so nothing picks this up yet; ` +
       `run \`npx ${PKG} install --hooks\``);
+  else if (hooked === null)
+    note(`no global agentwire hook for ${agent}; this only arrives if its project has one ` +
+      `(\`npx ${PKG} install --hooks\` installs it globally)`);
   return 0;
 }
 
@@ -645,15 +652,22 @@ function hookTargets(project) {
         return cfg;
       },
     },
+    // Antigravity runs hook commands without a shell, so quotes around a path reach node
+    // literally; Cursor may do the same. Both get a copy of the script beside their config,
+    // called by a relative path from the folder each runs hooks in. No quoting, and a home
+    // folder with spaces in its name still works.
     {
       agent: "cursor", marker: ".cursor",
       file: path.join(base, ".cursor", "hooks.json"),
+      launcher: path.join(base, ".cursor", "agentwire-hook.mjs"),
+      // project hooks run from the project root, user hooks from ~/.cursor
+      command: (e) => `node ${project ? ".cursor/" : ""}agentwire-hook.mjs hook cursor ${e}`,
       apply(cfg, add) {
         cfg.version ??= 1;
         cfg.hooks ??= {};
         for (const event of Object.keys(HOOKS.cursor)) {
           const list = (cfg.hooks[event] ?? []).filter((h) => !isOurs(h));
-          if (add) list.push({ command: hookCommand("cursor", event) });
+          if (add) list.push({ command: this.command(event) });
           if (list.length) cfg.hooks[event] = list; else delete cfg.hooks[event];
         }
         return cfg;
@@ -661,12 +675,15 @@ function hookTargets(project) {
     },
     {
       agent: "agy", marker: ".gemini",
-      // Antigravity reads global customizations from ~/.gemini/config and project ones from .agents
+      // global customizations live in ~/.gemini/config, project ones in .agents; hooks run from
+      // the folder that holds hooks.json
       file: project ? path.join(project, ".agents", "hooks.json") : path.join(HOME, ".gemini", "config", "hooks.json"),
+      launcher: project ? path.join(project, ".agents", "agentwire-hook.mjs") : path.join(HOME, ".gemini", "config", "agentwire-hook.mjs"),
+      command: (e) => `node agentwire-hook.mjs hook agy ${e}`,
       apply(cfg, add) {
         delete cfg.agentwire;
         if (add) cfg.agentwire = Object.fromEntries(Object.keys(HOOKS.agy).map((e) =>
-          [e, [{ type: "command", command: hookCommand("agy", e) }]]));
+          [e, [{ type: "command", command: this.command(e) }]]));
         return cfg;
       },
     },
@@ -713,6 +730,10 @@ function cmdInstall(opts, add = true) {
       const before = readJson(t.file, exists(t.file) ? null : {});
       if (before === null) { note(`skipped ${t.file}: it is not valid JSON`); continue; }
       writeConfig(t.file, t.apply(structuredClone(before), add), opts);
+      if (t.launcher && !opts.dryRun) {
+        if (add) fs.copyFileSync(SELF, t.launcher);
+        else fs.rmSync(t.launcher, { force: true });
+      }
     }
   }
 }
