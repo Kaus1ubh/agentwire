@@ -18,6 +18,10 @@ npx agentwire-cli start claude "review docs/plan.md and list the risks" --cwd ~/
 One `send` of `"FYI: the nightly build on main passed"` to an open chat in each app:
 
 ![The message arriving in Claude Code, Codex, Cursor and Antigravity chats](https://raw.githubusercontent.com/Kaus1ubh/agentwire/main/docs/receivers.png)
+
+And to a session of each in its CLI:
+
+![The message arriving in Claude Code, Codex, Cursor and Antigravity CLI sessions](https://raw.githubusercontent.com/Kaus1ubh/agentwire/main/docs/receivers-cli.png)
 <!-- /github-only -->
 
 One JavaScript file, no dependencies. Needs Node 22.13 or newer. `npm i -g agentwire-cli`
