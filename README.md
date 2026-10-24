@@ -1,5 +1,10 @@
 # agentwire
 
+[![npm](https://img.shields.io/npm/v/agentwire-cli)](https://www.npmjs.com/package/agentwire-cli)
+[![tests](https://github.com/Kaus1ubh/agentwire/actions/workflows/test.yml/badge.svg)](https://github.com/Kaus1ubh/agentwire/actions/workflows/test.yml)
+[![node](https://img.shields.io/node/v/agentwire-cli)](https://nodejs.org)
+[![license](https://img.shields.io/npm/l/agentwire-cli)](LICENSE)
+
 Send a message from one coding-agent session to another on the same machine: Claude Code,
 Codex, Antigravity and Cursor, including chats already open in their desktop apps.
 
@@ -18,6 +23,9 @@ installs the command as `agentwire`.
 npx agentwire-cli install            # the agentwire skill, for every agent installed here
 npx agentwire-cli install --hooks    # also the hooks that deliver to busy sessions and app chats
 ```
+
+The skill alone also installs through [skills](https://skills.sh), for any agent it supports:
+`npx skills add Kaus1ubh/agentwire`. The hooks still come from `install --hooks`.
 
 Without hooks, `send` still reaches idle sessions and Codex. `install --hooks` writes into each
 agent's user settings and keeps a backup beside every file it changes. `--project DIR` writes a
