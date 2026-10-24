@@ -278,6 +278,82 @@ function tool(name) {
   return bin;
 }
 
+// ---- inbox and hooks ---------------------------------------------------------
+//
+// `send --inbox` leaves a message for a session that the CLI routes cannot reach (busy, or an
+// editor/app chat). A relay hook inside that agent picks it up at its next tool call, at the
+// end of its turn, or with the user's next prompt.
+
+const INBOX = path.join(HOME, ".agent-relay", "inbox");
+const safe = (s) => String(s).replace(/[^A-Za-z0-9._-]/g, "_");
+
+function inboxPut(agent, id, text) {
+  const dir = path.join(INBOX, safe(agent), safe(id));
+  fs.mkdirSync(dir, { recursive: true });
+  const name = `${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+  fs.writeFileSync(path.join(dir, `${name}.tmp`), text);
+  fs.renameSync(path.join(dir, `${name}.tmp`), path.join(dir, `${name}.msg`)); // readers never see half a file
+  return path.join(dir, `${name}.msg`);
+}
+
+function inboxTake(agent, id) {
+  const dir = path.join(INBOX, safe(agent), safe(id));
+  const out = [];
+  for (const name of ls(dir).filter((n) => n.endsWith(".msg")).sort()) {
+    const taken = path.join(dir, `${name}.taken-${process.pid}`);
+    try { fs.renameSync(path.join(dir, name), taken); } catch { continue; } // another hook got it first
+    out.push(fs.readFileSync(taken, "utf8"));
+    fs.rmSync(taken, { force: true });
+  }
+  return out;
+}
+
+// each agent names the session differently on hook stdin
+const HOOK_SESSION_KEYS = ["session_id", "conversation_id", "conversationId", "sessionId", "thread_id", "threadId"];
+
+// what each agent expects back, per event; `null` means "nothing to deliver"
+const HOOK_OUTPUT = {
+  claude: {
+    PostToolUse: (m) => ({ hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: m } }),
+    UserPromptSubmit: (m) => ({ hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: m } }),
+    Stop: (m) => ({ decision: "block", reason: m }),
+  },
+  cursor: {
+    postToolUse: (m) => ({ additional_context: m }),
+    beforeSubmitPrompt: (m) => (m ? { continue: true, additional_context: m } : { continue: true }),
+    stop: (m) => ({ followup_message: m }),
+  },
+  agy: {
+    PreInvocation: (m) => ({ injectSteps: [{ systemMessage: { systemMessage: m } }] }),
+    Stop: (m) => ({ decision: "continue", reason: m }),
+  },
+};
+
+async function cmdHook(agent, event) {
+  let reply = {};
+  try {
+    const raw = await new Promise((resolve) => {
+      let s = "";
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", (d) => (s += d)).on("end", () => resolve(s)).on("error", () => resolve(s));
+    });
+    const input = raw.trim() ? JSON.parse(raw) : {};
+    if (process.env.RELAY_HOOK_LOG)
+      fs.appendFileSync(process.env.RELAY_HOOK_LOG, JSON.stringify({ at: new Date().toISOString(), agent, event, keys: Object.keys(input), input }) + "\n");
+    const id = HOOK_SESSION_KEYS.map((k) => input[k]).find(Boolean);
+    const make = HOOK_OUTPUT[agent]?.[event];
+    if (id && make) {
+      const messages = inboxTake(agent, id);
+      if (messages.length) reply = make(messages.map((m) => `[agent-relay message]\n${m}`).join("\n\n"));
+      else if (agent === "cursor" && event === "beforeSubmitPrompt") reply = make(null);
+    }
+  } catch (e) {
+    // a hook must never break the agent it runs in
+    if (process.env.RELAY_HOOK_LOG) fs.appendFileSync(process.env.RELAY_HOOK_LOG, `error ${e.stack}\n`);
+  }
+  process.stdout.write(JSON.stringify(reply));
+}
+
 // ---- commands ----------------------------------------------------------------
 
 const LISTERS = { claude: claudeSessions, codex: codexSessions, agy: agySessions, cursor: cursorSessions };
@@ -307,6 +383,11 @@ function cmdSend(agent, id, message, opts) {
   if (from) {
     const [a, ...rest] = from.split(":");
     text = `[relay from ${a} ${rest.join(":")}] ${message}\n\n(reply with: npx agent-relay send ${a} ${rest.join(":")} "...")`;
+  }
+
+  if (opts.inbox) {
+    console.log(`left in inbox: ${inboxPut(agent, id, text)}`);
+    return 0;
   }
 
   if (agent === "claude") {
@@ -397,6 +478,8 @@ function parse(argv) {
     else if (a === "--from") opts.from = argv[++i];
     else if (a === "--force") opts.force = true;
     else if (a === "--dry-run") opts.dryRun = true;
+    else if (a === "--inbox") opts.inbox = true;
+    else if (a === "--log") process.env.RELAY_HOOK_LOG = argv[++i];
     else if (a === "-h" || a === "--help") { console.log(USAGE); process.exit(0); }
     else pos.push(a);
   }
@@ -408,6 +491,7 @@ if (opts.agent && !LISTERS[opts.agent]) fail(`unknown agent ${opts.agent}`);
 if (cmd === "list") cmdList(opts);
 else if (cmd === "whoami") cmdWhoami();
 else if (cmd === "install") cmdInstall(opts);
+else if (cmd === "hook") await cmdHook(args[0], args[1]);
 else if (cmd === "send") {
   const [agent, id, message] = args;
   if (!LISTERS[agent] || !id || message === undefined) fail(`usage: agent-relay send AGENT SESSION_ID MESSAGE`);
