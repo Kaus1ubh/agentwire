@@ -3,7 +3,7 @@
 [![npm](https://img.shields.io/npm/v/agentwire-cli)](https://www.npmjs.com/package/agentwire-cli)
 [![tests](https://github.com/Kaus1ubh/agentwire/actions/workflows/test.yml/badge.svg)](https://github.com/Kaus1ubh/agentwire/actions/workflows/test.yml)
 [![node](https://img.shields.io/node/v/agentwire-cli)](https://nodejs.org)
-[![license](https://img.shields.io/npm/l/agentwire-cli)](LICENSE)
+[![license](https://img.shields.io/npm/l/agentwire-cli)](https://github.com/Kaus1ubh/agentwire/blob/main/LICENSE)
 
 Send a message from one coding-agent session to another on the same machine: Claude Code,
 Codex, Antigravity and Cursor, including chats already open in their desktop apps.
